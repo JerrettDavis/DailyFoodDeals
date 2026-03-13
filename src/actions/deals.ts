@@ -65,18 +65,17 @@ export async function submitDeal(formData: FormData) {
   redirect(`/deals/${deal.id}`);
 }
 
-export async function registerUser(formData: FormData) {
+export async function registerUser(formData: FormData): Promise<{ error: string } | undefined> {
   const bcrypt = await import("bcryptjs");
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const name = formData.get("name") as string;
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) throw new Error("Email already in use");
+  if (existing) return { error: "Email already in use" };
 
   const hashed = await bcrypt.hash(password, 12);
   await prisma.user.create({
     data: { email, name, password: hashed },
   });
-  redirect("/auth/signin?registered=true");
 }

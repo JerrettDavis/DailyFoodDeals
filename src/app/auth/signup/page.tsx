@@ -1,21 +1,24 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { registerUser } from "@/actions/deals";
 
 export default function SignUpPage() {
+  const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError("");
-    try {
-      await registerUser(formData);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
+    const result = await registerUser(formData);
+    if (result?.error) {
+      setError(result.error);
       setLoading(false);
+    } else {
+      setLoading(false);
+      router.push("/auth/signin?registered=true");
     }
   }
 

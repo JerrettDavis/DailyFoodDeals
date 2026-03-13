@@ -20,6 +20,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!credentials?.email || !credentials?.password) return null;
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
+          select: { id: true, email: true, name: true, image: true, role: true, password: true },
         });
         if (!user || !user.password) return null;
         const isValid = await bcrypt.compare(
@@ -27,7 +28,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user.password
         );
         if (!isValid) return null;
-        return user;
+        // Return only the fields needed — never expose the password hash
+        const { password: _password, ...safeUser } = user;
+        return safeUser;
       },
     }),
   ],

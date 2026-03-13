@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { DealGrid } from "@/components/deals/DealGrid";
 import { DealFilters } from "@/components/deals/DealFilters";
 import { DealSearch } from "@/components/deals/DealSearch";
@@ -19,7 +20,7 @@ interface DealsPageProps {
 }
 
 async function getDeals(filters: Awaited<DealsPageProps["searchParams"]>): Promise<DealWithRelations[]> {
-  const where: Record<string, unknown> = { status: "APPROVED" };
+  const where: Prisma.DealWhereInput = { status: "APPROVED" };
 
   if (filters.verified === "true") where.verified = true;
   if (filters.kidFriendly === "true") where.kidFriendly = true;
@@ -32,7 +33,7 @@ async function getDeals(filters: Awaited<DealsPageProps["searchParams"]>): Promi
     where.OR = [
       { title: { contains: filters.search } },
       { description: { contains: filters.search } },
-      { restaurant: { name: { contains: filters.search } } },
+      { restaurant: { is: { name: { contains: filters.search } } } },
     ];
   }
 
@@ -41,7 +42,7 @@ async function getDeals(filters: Awaited<DealsPageProps["searchParams"]>): Promi
   }
 
   const deals = await prisma.deal.findMany({
-    where: where as import("@prisma/client").Prisma.DealWhereInput,
+    where,
     include: {
       restaurant: true,
       schedules: true,

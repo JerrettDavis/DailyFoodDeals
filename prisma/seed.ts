@@ -1,7 +1,12 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaLibSql({
+    url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
+  }),
+});
 
 async function main() {
   console.log("Seeding database...");
