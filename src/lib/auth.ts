@@ -28,9 +28,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user.password
         );
         if (!isValid) return null;
-        // Return only the fields needed — never expose the password hash
-        const { password: _password, ...safeUser } = user;
-        return safeUser;
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          role: user.role,
+        };
       },
     }),
   ],
