@@ -4,16 +4,78 @@ import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+const VALID_DAY_VALUES = new Set([0, 1, 2, 3, 4, 5, 6]);
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function getRequiredText(formData: FormData, field: string) {
+  const value = formData.get(field);
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function getOptionalText(formData: FormData, field: string) {
+  const value = formData.get(field);
+  if (typeof value !== "string") return undefined;
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function getTimeValue(formData: FormData, field: string, fallback: string) {
+  const value = formData.get(field);
+  if (value === null) return fallback;
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return fallback;
+  return TIME_PATTERN.test(trimmed) ? trimmed : null;
+}
+
+function redirectToSubmitError(message: string): never {
+  redirect(`/submit?error=${encodeURIComponent(message)}`);
+}
+
 export async function submitDeal(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) redirect("/auth/signin");
 
-  const days = formData.getAll("days").map(Number);
-  const restaurantName = formData.get("restaurantName") as string;
-  const restaurantAddress = formData.get("restaurantAddress") as string;
-  const restaurantCity = formData.get("restaurantCity") as string;
-  const restaurantState = formData.get("restaurantState") as string;
-  const restaurantZip = formData.get("restaurantZip") as string;
+  const restaurantName = getRequiredText(formData, "restaurantName");
+  const restaurantAddress = getRequiredText(formData, "restaurantAddress");
+  const restaurantCity = getRequiredText(formData, "restaurantCity");
+  const restaurantState = getRequiredText(formData, "restaurantState");
+  const restaurantZip = getRequiredText(formData, "restaurantZip");
+  const title = getRequiredText(formData, "title");
+  const description = getRequiredText(formData, "description");
+  const startTime = getTimeValue(formData, "startTime", "11:00");
+  const endTime = getTimeValue(formData, "endTime", "14:00");
+
+  if (!restaurantName || !restaurantAddress || !restaurantCity || !restaurantState || !restaurantZip || !title || !description) {
+    redirectToSubmitError("Please fill out all required fields.");
+  }
+
+  if (!startTime || !endTime) {
+    redirectToSubmitError("Please provide valid start and end times.");
+  }
+
+  const dayValues = formData.getAll("days");
+  if (dayValues.length === 0) {
+    redirectToSubmitError("Select at least one available day.");
+  }
+
+  const parsedDays = dayValues.map((value) => {
+    if (typeof value !== "string" || value.trim() === "") return null;
+    const day = Number(value);
+    return Number.isInteger(day) && VALID_DAY_VALUES.has(day) ? day : null;
+  });
+
+  if (parsedDays.some((day) => day === null)) {
+    redirectToSubmitError("Select valid days for the deal schedule.");
+  }
+
+  const days = [...new Set(parsedDays.filter((day): day is number => day !== null))];
 
   let restaurant = await prisma.restaurant.findFirst({
     where: { name: restaurantName, city: restaurantCity },
@@ -34,9 +96,9 @@ export async function submitDeal(formData: FormData) {
   const deal = await prisma.deal.create({
     data: {
       restaurantId: restaurant.id,
-      title: formData.get("title") as string,
-      description: formData.get("description") as string,
-      priceInfo: formData.get("priceInfo") as string || undefined,
+      title,
+      description,
+      priceInfo: getOptionalText(formData, "priceInfo"),
       dineIn: formData.get("dineIn") === "on",
       toGo: formData.get("toGo") === "on",
       kidFriendly: formData.get("kidFriendly") === "on",
@@ -45,17 +107,17 @@ export async function submitDeal(formData: FormData) {
       vegetarianFriendly: formData.get("vegetarianFriendly") === "on",
       familyFriendly: formData.get("familyFriendly") === "on",
       lateNight: formData.get("lateNight") === "on",
-      cuisineType: formData.get("cuisineType") as string || undefined,
-      category: formData.get("category") as string || undefined,
-      sourceUrl: formData.get("sourceUrl") as string || undefined,
-      notes: formData.get("notes") as string || undefined,
+      cuisineType: getOptionalText(formData, "cuisineType"),
+      category: getOptionalText(formData, "category"),
+      sourceUrl: getOptionalText(formData, "sourceUrl"),
+      notes: getOptionalText(formData, "notes"),
       submittedById: session.user.id,
       status: "PENDING",
       schedules: {
         create: days.map((day) => ({
           dayOfWeek: day,
-          startTime: formData.get("startTime") as string || "11:00",
-          endTime: formData.get("endTime") as string || "14:00",
+          startTime,
+          endTime,
         })),
       },
     },
@@ -67,9 +129,29 @@ export async function submitDeal(formData: FormData) {
 
 export async function registerUser(formData: FormData): Promise<{ error: string } | undefined> {
   const bcrypt = await import("bcryptjs");
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const name = formData.get("name") as string;
+  const rawEmail = formData.get("email");
+  const rawPassword = formData.get("password");
+  const rawName = formData.get("name");
+
+  if (typeof rawEmail !== "string" || typeof rawPassword !== "string" || typeof rawName !== "string") {
+    return { error: "Please complete the signup form." };
+  }
+
+  const email = rawEmail.trim().toLowerCase();
+  const name = rawName.trim();
+  const password = rawPassword;
+
+  if (!email || !name || !password) {
+    return { error: "Name, email, and password are required." };
+  }
+
+  if (!EMAIL_PATTERN.test(email)) {
+    return { error: "Please enter a valid email address." };
+  }
+
+  if (password.length < 8 || !/\p{L}/u.test(password) || !/\p{N}/u.test(password)) {
+    return { error: "Password must be at least 8 characters and include letters and numbers." };
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return { error: "Email already in use" };

@@ -19,7 +19,6 @@ async function getDeal(id: string): Promise<DealWithRelations | null> {
       schedules: true,
       votes: true,
       favorites: true,
-      submittedBy: true,
     },
   });
   return deal as DealWithRelations | null;

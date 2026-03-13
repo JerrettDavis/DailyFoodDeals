@@ -12,7 +12,13 @@ export default async function AdminPage() {
   const [pendingDeals, approvedDeals, reports] = await Promise.all([
     prisma.deal.findMany({
       where: { status: "PENDING" },
-      include: { restaurant: true, schedules: true, votes: true, favorites: true, submittedBy: true },
+      include: {
+        restaurant: true,
+        schedules: true,
+        votes: true,
+        favorites: true,
+        submittedBy: { select: { name: true, email: true } },
+      },
       orderBy: { createdAt: "asc" },
     }),
     prisma.deal.findMany({
@@ -23,7 +29,10 @@ export default async function AdminPage() {
     }),
     prisma.report.findMany({
       where: { resolved: false },
-      include: { deal: true, user: true },
+      include: {
+        deal: { select: { title: true } },
+        user: { select: { name: true, email: true } },
+      },
       orderBy: { createdAt: "desc" },
     }),
   ]);

@@ -21,6 +21,8 @@ interface DealsPageProps {
 
 async function getDeals(filters: Awaited<DealsPageProps["searchParams"]>): Promise<DealWithRelations[]> {
   const where: Prisma.DealWhereInput = { status: "APPROVED" };
+  const dayValue = filters.day?.trim();
+  const parsedDay = dayValue !== undefined && dayValue !== "" ? Number(dayValue) : undefined;
 
   if (filters.verified === "true") where.verified = true;
   if (filters.kidFriendly === "true") where.kidFriendly = true;
@@ -37,8 +39,8 @@ async function getDeals(filters: Awaited<DealsPageProps["searchParams"]>): Promi
     ];
   }
 
-  if (filters.day !== undefined) {
-    where.schedules = { some: { dayOfWeek: Number(filters.day) } };
+  if (parsedDay !== undefined && Number.isInteger(parsedDay) && parsedDay >= 0 && parsedDay <= 6) {
+    where.schedules = { some: { dayOfWeek: parsedDay } };
   }
 
   const deals = await prisma.deal.findMany({

@@ -19,7 +19,11 @@ export const authConfig = {
       const protectedRoutes = ["/submit", "/favorites"];
 
       if (adminRoutes.some((route) => pathname.startsWith(route))) {
-        return isAdmin;
+        if (!isLoggedIn) return false;
+        if (!isAdmin) {
+          return Response.redirect(new URL("/", nextUrl));
+        }
+        return true;
       }
       if (protectedRoutes.some((route) => pathname.startsWith(route))) {
         return isLoggedIn;
