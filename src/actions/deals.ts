@@ -38,6 +38,10 @@ function redirectToSubmitError(message: string): never {
   redirect(`/submit?error=${encodeURIComponent(message)}`);
 }
 
+function redirectToSubmitSuccess(message: string): never {
+  redirect(`/submit?success=${encodeURIComponent(message)}`);
+}
+
 export async function submitDeal(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) redirect("/auth/signin");
@@ -93,7 +97,7 @@ export async function submitDeal(formData: FormData) {
     });
   }
 
-  const deal = await prisma.deal.create({
+  await prisma.deal.create({
     data: {
       restaurantId: restaurant.id,
       title,
@@ -123,8 +127,9 @@ export async function submitDeal(formData: FormData) {
     },
   });
 
+  revalidatePath("/admin");
   revalidatePath("/deals");
-  redirect(`/deals/${deal.id}`);
+  redirectToSubmitSuccess("Deal submitted for review.");
 }
 
 export async function registerUser(formData: FormData): Promise<{ error: string } | undefined> {

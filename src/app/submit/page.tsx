@@ -6,6 +6,7 @@ import { CUISINE_TYPES, DEAL_CATEGORIES, DAY_NAMES } from "@/lib/utils";
 interface SubmitDealPageProps {
   searchParams?: Promise<{
     error?: string;
+    success?: string;
   }>;
 }
 
@@ -14,11 +15,17 @@ export default async function SubmitDealPage({ searchParams }: SubmitDealPagePro
   if (!session) redirect("/auth/signin");
   const resolvedSearchParams = await searchParams;
   const error = resolvedSearchParams?.error;
+  const success = resolvedSearchParams?.success;
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
       <h1 className="text-3xl font-bold text-white mb-2">Submit a Deal</h1>
       <p className="text-gray-400 mb-8">Share a great food deal with the community. Deals are reviewed before being published.</p>
+      {success && (
+        <div className="mb-6 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+          {success}
+        </div>
+      )}
       {error && (
         <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
           {error}

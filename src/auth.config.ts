@@ -12,18 +12,13 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isAdmin = auth?.user?.role === "ADMIN";
 
       const pathname = nextUrl.pathname;
       const adminRoutes = ["/admin"];
       const protectedRoutes = ["/submit", "/favorites"];
 
       if (adminRoutes.some((route) => pathname.startsWith(route))) {
-        if (!isLoggedIn) return false;
-        if (!isAdmin) {
-          return Response.redirect(new URL("/", nextUrl));
-        }
-        return true;
+        return isLoggedIn;
       }
       if (protectedRoutes.some((route) => pathname.startsWith(route))) {
         return isLoggedIn;
