@@ -5,7 +5,7 @@ Sizzling snacks and daily deals that won't break the bank.
 ## Tech Stack
 
 - **Framework**: Next.js 16 with App Router
-- **Database**: SQLite via Prisma v5
+- **Database**: SQLite via Prisma v7 (libSQL driver adapter)
 - **Auth**: NextAuth.js v5 (beta) with credentials provider and JWT sessions
 - **Styling**: Tailwind CSS v4
 - **Language**: TypeScript
