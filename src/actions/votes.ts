@@ -1,12 +1,17 @@
 "use server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { canUseRuntimeAuth, hasRuntimeDatabase } from "@/lib/runtime-config";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 type VoteType = "UP" | "DOWN" | "CONFIRM" | "EXPIRED";
 
 export async function voteDeal(dealId: string, voteType: VoteType) {
+  if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
+    redirect("/deals");
+  }
+
   const session = await auth();
   if (!session?.user?.id) redirect("/auth/signin");
 
@@ -33,6 +38,10 @@ export async function voteDeal(dealId: string, voteType: VoteType) {
 }
 
 export async function reportDeal(dealId: string, reason: string) {
+  if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
+    redirect("/deals");
+  }
+
   const session = await auth();
   if (!session?.user?.id) redirect("/auth/signin");
 

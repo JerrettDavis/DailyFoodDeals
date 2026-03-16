@@ -1,9 +1,10 @@
-import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
+import { DeploymentStatusNotice } from "@/components/system/DeploymentStatusNotice";
 import { getDayName, formatTime } from "@/lib/utils";
-import type { DealWithRelations } from "@/types";
+import { getPublicDealById } from "@/lib/public-deals";
+import { canUseRuntimeAuth, hasRuntimeDatabase, usePublicFallbackData } from "@/lib/runtime-config";
 import { VoteButtons } from "./VoteButtons";
 import { FavoriteButton } from "./FavoriteButton";
 
@@ -11,24 +12,16 @@ interface DealDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-async function getDeal(id: string): Promise<DealWithRelations | null> {
-  const deal = await prisma.deal.findUnique({
-    where: { id },
-    include: {
-      restaurant: true,
-      schedules: true,
-      votes: true,
-      favorites: true,
-    },
-  });
-  return deal as DealWithRelations | null;
-}
-
 export default async function DealDetailPage({ params }: DealDetailPageProps) {
   const { id } = await params;
-  const [deal, session] = await Promise.all([getDeal(id), auth()]);
+  const [deal, session] = await Promise.all([
+    getPublicDealById(id),
+    canUseRuntimeAuth ? auth() : Promise.resolve(null),
+  ]);
 
   if (!deal || deal.status !== "APPROVED") notFound();
+
+  const canUseInteractiveFeatures = canUseRuntimeAuth && hasRuntimeDatabase && !usePublicFallbackData;
 
   const isFavorited = session?.user?.id
     ? deal.favorites.some((f) => f.userId === session.user.id)
@@ -43,6 +36,13 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {usePublicFallbackData && (
+        <DeploymentStatusNotice
+          compact
+          title="Demo mode"
+          message="This deal is being served from built-in sample data because the live runtime database is unavailable."
+        />
+      )}
       <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
         <div className="p-6 md:p-8">
           {/* Header */}
@@ -56,7 +56,13 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
               <h1 className="text-3xl font-bold text-white mb-2">{deal.title}</h1>
               <p className="text-orange-400 text-xl font-semibold">{deal.priceInfo}</p>
             </div>
-            <FavoriteButton dealId={deal.id} isFavorited={isFavorited} />
+            {canUseInteractiveFeatures ? (
+              <FavoriteButton dealId={deal.id} isFavorited={isFavorited} />
+            ) : (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                Saving and voting are temporarily unavailable.
+              </div>
+            )}
           </div>
 
           {/* Description */}
@@ -108,7 +114,11 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
 
           {/* Votes */}
           <div className="flex items-center justify-between">
-            <VoteButtons dealId={deal.id} upvotes={upvotes} downvotes={downvotes} userVote={userVote} />
+            {canUseInteractiveFeatures ? (
+              <VoteButtons dealId={deal.id} upvotes={upvotes} downvotes={downvotes} userVote={userVote} />
+            ) : (
+              <div className="text-sm text-amber-200">Community interactions will return once runtime services are configured.</div>
+            )}
             <div className="text-gray-500 text-sm">
               Added {new Date(deal.createdAt).toLocaleDateString()}
             </div>

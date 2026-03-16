@@ -2,9 +2,24 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { DealGrid } from "@/components/deals/DealGrid";
+import { DeploymentStatusNotice } from "@/components/system/DeploymentStatusNotice";
+import { canUseRuntimeAuth, hasRuntimeDatabase } from "@/lib/runtime-config";
 import type { DealWithRelations } from "@/types";
 
 export default async function FavoritesPage() {
+  if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
+    return (
+      <div className="px-4 py-12">
+        <DeploymentStatusNotice
+          title="Favorites are temporarily unavailable"
+          message="This deployment is missing runtime authentication or database configuration, so saved deals can't be loaded right now."
+          actionHref="/deals"
+          actionLabel="Browse available deals"
+        />
+      </div>
+    );
+  }
+
   const session = await auth();
   if (!session?.user?.id) redirect("/auth/signin");
 

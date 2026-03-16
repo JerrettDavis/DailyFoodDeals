@@ -1,22 +1,10 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
 import { DealGrid } from "@/components/deals/DealGrid";
-import type { DealWithRelations } from "@/types";
+import { DeploymentStatusNotice } from "@/components/system/DeploymentStatusNotice";
+import { getFeaturedDeals } from "@/lib/public-deals";
+import { usePublicFallbackData } from "@/lib/runtime-config";
 
-async function getFeaturedDeals(): Promise<DealWithRelations[]> {
-  const deals = await prisma.deal.findMany({
-    where: { status: "APPROVED" },
-    include: {
-      restaurant: true,
-      schedules: true,
-      votes: true,
-      favorites: true,
-    },
-    orderBy: { createdAt: "desc" },
-    take: 6,
-  });
-  return deals as DealWithRelations[];
-}
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const featuredDeals = await getFeaturedDeals();
@@ -68,6 +56,13 @@ export default async function HomePage() {
 
       {/* Featured deals */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {usePublicFallbackData && (
+          <DeploymentStatusNotice
+            compact
+            title="Showing demo deals"
+            message="This deployment is missing a runtime database connection, so public pages are using built-in sample deals instead of live submissions."
+          />
+        )}
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-bold text-white">Featured Deals</h2>
           <Link href="/deals" className="text-orange-500 hover:text-orange-400 transition-colors">

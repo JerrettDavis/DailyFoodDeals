@@ -3,9 +3,24 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { approveDeal, rejectDeal, verifyDeal } from "@/actions/admin";
 import { Badge } from "@/components/ui/Badge";
+import { DeploymentStatusNotice } from "@/components/system/DeploymentStatusNotice";
 import { getDayName, formatTime } from "@/lib/utils";
+import { canUseRuntimeAuth, hasRuntimeDatabase } from "@/lib/runtime-config";
 
 export default async function AdminPage() {
+  if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
+    return (
+      <div className="px-4 py-12">
+        <DeploymentStatusNotice
+          title="Admin tools are temporarily unavailable"
+          message="This deployment is missing runtime authentication or database configuration, so moderation tools can't run right now."
+          actionHref="/deals"
+          actionLabel="Browse available deals"
+        />
+      </div>
+    );
+  }
+
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") redirect("/");
 

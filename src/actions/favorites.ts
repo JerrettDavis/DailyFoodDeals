@@ -1,10 +1,15 @@
 "use server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { canUseRuntimeAuth, hasRuntimeDatabase } from "@/lib/runtime-config";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function toggleFavorite(dealId: string) {
+  if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
+    redirect("/deals");
+  }
+
   const session = await auth();
   if (!session?.user?.id) redirect("/auth/signin");
 

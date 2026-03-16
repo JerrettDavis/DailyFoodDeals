@@ -1,6 +1,7 @@
 "use server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { canUseRuntimeAuth, hasRuntimeDatabase } from "@/lib/runtime-config";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -43,6 +44,10 @@ function redirectToSubmitSuccess(message: string): never {
 }
 
 export async function submitDeal(formData: FormData) {
+  if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
+    redirectToSubmitError("Deal submissions are temporarily unavailable on this deployment.");
+  }
+
   const session = await auth();
   if (!session?.user?.id) redirect("/auth/signin");
 
@@ -133,6 +138,10 @@ export async function submitDeal(formData: FormData) {
 }
 
 export async function registerUser(formData: FormData): Promise<{ error: string } | undefined> {
+  if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
+    return { error: "Account creation is temporarily unavailable on this deployment." };
+  }
+
   const bcrypt = await import("bcryptjs");
   const rawEmail = formData.get("email");
   const rawPassword = formData.get("password");

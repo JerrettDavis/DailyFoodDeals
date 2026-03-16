@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { submitDeal } from "@/actions/deals";
+import { DeploymentStatusNotice } from "@/components/system/DeploymentStatusNotice";
+import { canUseRuntimeAuth, hasRuntimeDatabase } from "@/lib/runtime-config";
 import { CUISINE_TYPES, DEAL_CATEGORIES, DAY_NAMES } from "@/lib/utils";
 
 interface SubmitDealPageProps {
@@ -11,6 +13,19 @@ interface SubmitDealPageProps {
 }
 
 export default async function SubmitDealPage({ searchParams }: SubmitDealPageProps) {
+  if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
+    return (
+      <div className="px-4 py-12">
+        <DeploymentStatusNotice
+          title="Submissions are temporarily unavailable"
+          message="This deployment is missing runtime authentication or database configuration, so new deals can't be submitted right now."
+          actionHref="/deals"
+          actionLabel="Browse available deals"
+        />
+      </div>
+    );
+  }
+
   const session = await auth();
   if (!session) redirect("/auth/signin");
   const resolvedSearchParams = await searchParams;
