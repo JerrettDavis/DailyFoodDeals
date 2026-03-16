@@ -5,6 +5,11 @@ import type { NextAuthConfig } from "next-auth";
  * Does NOT import Prisma or any Node.js-only modules.
  */
 export const authConfig = {
+  trustHost:
+    process.env.AUTH_TRUST_HOST === "true" ||
+    process.env.VERCEL === "1" ||
+    process.env.CF_PAGES === "1",
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/auth/signin",
   },

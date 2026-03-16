@@ -35,6 +35,7 @@ test("admin can approve a newly submitted pending deal and it becomes publicly v
     .filter({ has: page.getByRole("button", { name: "✓ Approve" }) });
   await expect(pendingCard).toBeVisible();
   await pendingCard.getByRole("button", { name: "✓ Approve" }).click();
+  await expect(pendingCard).not.toBeVisible();
 
   await page.goto(`/deals?search=${encodeURIComponent(dealTitle)}`);
   await expect(page.getByText(dealTitle)).toBeVisible();

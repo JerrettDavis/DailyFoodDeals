@@ -16,6 +16,33 @@ function SignInForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    const rawCallbackUrl = searchParams.get("callbackUrl");
+    const callbackUrl = (() => {
+      if (!rawCallbackUrl) return "/";
+
+      try {
+        const url = new URL(rawCallbackUrl, window.location.origin);
+        const currentUrl = new URL(window.location.origin);
+        const sameOrigin = url.origin === currentUrl.origin;
+        const isLoopbackRedirect =
+          ["localhost", "127.0.0.1"].includes(url.hostname) &&
+          ["localhost", "127.0.0.1"].includes(currentUrl.hostname) &&
+          url.port === currentUrl.port &&
+          url.protocol === currentUrl.protocol;
+
+        if (!sameOrigin && !isLoopbackRedirect) {
+          return "/";
+        }
+
+        const normalizedPath = `${url.pathname}${url.search}${url.hash}`;
+        return normalizedPath.startsWith("/") && !normalizedPath.startsWith("//")
+          ? normalizedPath
+          : "/";
+      } catch {
+        return "/";
+      }
+    })();
+
     const result = await signIn("credentials", {
       email,
       password,
@@ -24,7 +51,7 @@ function SignInForm() {
     if (result?.error) {
       setError("Invalid email or password");
     } else {
-      window.location.href = "/";
+      window.location.href = callbackUrl;
     }
     setLoading(false);
   };

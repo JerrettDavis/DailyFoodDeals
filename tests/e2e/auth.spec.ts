@@ -10,11 +10,17 @@ test("invalid sign in and protected route redirects work", async ({ page }) => {
   await page.getByRole("button", { name: "Sign In" }).click();
 
   await expect(page.getByText("Invalid email or password")).toBeVisible();
+
+  await page.getByPlaceholder("you@example.com").fill("user@example.com");
+  await page.getByPlaceholder("••••••••").fill("user1234");
+  await page.getByRole("button", { name: "Sign In" }).click();
+
+  await expect(page).toHaveURL(/\/favorites$/);
+  await expect(page.getByRole("heading", { name: "My Favorites" })).toBeVisible();
 });
 
 test("signup validates password strength and supports normalized email sign in", async ({ page }) => {
   const uniqueEmail = `MixedCase.User+${Date.now()}@Example.com`;
-  const normalizedEmail = uniqueEmail.toLowerCase();
   const password = "Pass1234";
 
   await page.goto("/auth/signup");
@@ -33,6 +39,6 @@ test("signup validates password strength and supports normalized email sign in",
   await expect(page).toHaveURL(/\/auth\/signin\?registered=true$/);
   await expect(page.getByText("Account created! Sign in below.")).toBeVisible();
 
-  await signIn(page, normalizedEmail, password);
+  await signIn(page, uniqueEmail, password);
   await expect(page).toHaveURL("/");
 });

@@ -9,10 +9,10 @@
     "lint": "eslint",
     "test:e2e": "playwright test",
     "postinstall": "prisma generate",
-    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
+    "seed": "node prisma/seed-runner.mjs"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "seed": "node prisma/seed-runner.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
