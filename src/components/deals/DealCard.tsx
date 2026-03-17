@@ -2,22 +2,30 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { CheckCircleIcon, ClockIcon, MapPinIcon } from "@/components/ui/icons";
-import { formatCompactNumber, formatTime, getDayName, getRestaurantAddress, hasCoordinates } from "@/lib/utils";
-import type { DealWithRelations } from "@/types";
+import {
+  formatCompactNumber,
+  formatDistanceMiles,
+  formatTime,
+  getDayName,
+  getRestaurantAddress,
+  hasCoordinates,
+} from "@/lib/utils";
+import type { ResolvedDeal } from "@/types";
 
 interface DealCardProps {
-  deal: DealWithRelations;
+  deal: ResolvedDeal;
   showStatus?: boolean;
+  detailHrefSuffix?: string;
 }
 
-export function DealCard({ deal, showStatus = false }: DealCardProps) {
+export function DealCard({ deal, showStatus = false, detailHrefSuffix = "" }: DealCardProps) {
   const upvotes = deal.votes.filter((vote) => vote.voteType === "UP" || vote.voteType === "CONFIRM").length;
   const schedule = [...deal.schedules].sort(
     (left, right) => left.dayOfWeek - right.dayOfWeek || left.startTime.localeCompare(right.startTime)
   )[0];
 
   return (
-    <Link href={`/deals/${deal.id}`} className="group block h-full" aria-label={deal.title}>
+    <Link href={`/deals/${deal.id}${detailHrefSuffix}`} className="group block h-full" aria-label={deal.title}>
       <Card className="h-full p-5" variant="interactive">
         <div className="flex h-full flex-col gap-5">
           <div className="flex items-start justify-between gap-4">
@@ -29,6 +37,8 @@ export function DealCard({ deal, showStatus = false }: DealCardProps) {
                     Verified
                   </Badge>
                 ) : null}
+                {deal.isAllLocationsDeal ? <Badge variant="allLocations">All Locations</Badge> : null}
+                {deal.sampleDataActive ? <Badge variant="sample">Sample Data</Badge> : null}
                 {deal.cuisineType ? <Badge variant="cuisine">{deal.cuisineType}</Badge> : null}
                 {deal.category ? <Badge variant="category">{deal.category}</Badge> : null}
                 {showStatus ? (
@@ -50,9 +60,19 @@ export function DealCard({ deal, showStatus = false }: DealCardProps) {
                   {deal.title}
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
-                  <span className="font-medium text-gray-200">{deal.restaurant.name}</span>
+                  <span className="font-medium text-gray-200">
+                    {deal.displayBrand?.name ?? deal.displayRestaurant.name}
+                  </span>
                   <span className="text-gray-600">•</span>
-                  <span>{deal.restaurant.city}, {deal.restaurant.state}</span>
+                  <span>
+                    {deal.displayRestaurant.city}, {deal.displayRestaurant.state}
+                  </span>
+                  {deal.isAllLocationsDeal ? (
+                    <>
+                      <span className="text-gray-600">•</span>
+                      <span>{deal.locationCount} participating locations</span>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -83,8 +103,23 @@ export function DealCard({ deal, showStatus = false }: DealCardProps) {
             <div className="flex items-start gap-2 text-sm text-gray-400">
               <MapPinIcon size={16} className="mt-0.5 text-orange-300" />
               <div>
-                <p className="line-clamp-2">{getRestaurantAddress(deal.restaurant)}</p>
-                {hasCoordinates(deal.restaurant) ? (
+                <p className="line-clamp-2">{getRestaurantAddress(deal.displayRestaurant)}</p>
+                {deal.isAllLocationsDeal ? (
+                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-violet-200/70">
+                    {deal.locationCount === 0
+                      ? "No locations currently participating"
+                      : deal.nearestLocation && deal.nearestLocation.distanceMiles !== null
+                      ? `Nearest participating location • ${formatDistanceMiles(deal.nearestLocation.distanceMiles)}`
+                      : `${deal.locationCount} locations participating`}
+                  </p>
+                ) : null}
+                {deal.nonParticipatingLocations.length > 0 ? (
+                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-rose-200/70">
+                    {deal.nonParticipatingLocations.length} location
+                    {deal.nonParticipatingLocations.length === 1 ? "" : "s"} excluded
+                  </p>
+                ) : null}
+                {hasCoordinates(deal.displayRestaurant) ? (
                   <p className="mt-1 text-xs uppercase tracking-[0.18em] text-emerald-200/70">Map ready</p>
                 ) : null}
               </div>

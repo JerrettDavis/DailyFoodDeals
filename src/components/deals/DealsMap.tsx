@@ -12,6 +12,8 @@ export interface DealsMapPoint {
   title: string;
   restaurantName: string;
   priceInfo?: string | null;
+  distanceLabel?: string | null;
+  isSampleData?: boolean;
   latitude: number;
   longitude: number;
   href?: string;
@@ -113,6 +115,8 @@ export function DealsMap({ points, className, heightClassName = "h-[420px]" }: D
                     <p className="text-sm font-semibold text-white">{point.title}</p>
                     <p className="text-xs text-gray-300">{point.restaurantName}</p>
                     {point.priceInfo ? <p className="mt-1 text-xs font-medium text-orange-200">{point.priceInfo}</p> : null}
+                    {point.distanceLabel ? <p className="mt-1 text-xs text-emerald-200">{point.distanceLabel}</p> : null}
+                    {point.isSampleData ? <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-amber-200">Sample data</p> : null}
                   </div>
                   <div className="flex flex-wrap gap-3 text-xs text-orange-200">
                     {point.href ? (

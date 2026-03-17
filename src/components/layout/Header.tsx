@@ -116,10 +116,10 @@ function AuthEnabledHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const sessionState = useSession();
   const session = sessionState?.data ?? null;
-  const adminEnabled = session?.user?.role === "ADMIN";
+  const adminEnabled = session?.user?.role === "ADMIN" || session?.user?.role === "OWNER";
   const links = [
     ...coreLinks,
-    ...(adminEnabled ? [{ href: "/admin", label: "Admin" }] : []),
+    ...(adminEnabled ? [{ href: "/admin", label: "Manage" }] : []),
     ...(session ? [{ href: "/favorites", label: "Favorites" }] : []),
   ];
 

@@ -6,8 +6,9 @@ import { DeploymentStatusNotice } from "@/components/system/DeploymentStatusNoti
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { BookmarkIcon, SparklesIcon } from "@/components/ui/icons";
+import { resolveDeals } from "@/lib/deal-resolver";
 import { canUseRuntimeAuth, hasRuntimeDatabase } from "@/lib/runtime-config";
-import type { DealWithRelations } from "@/types";
+import { dealWithRelationsInclude, type DealWithRelations } from "@/types";
 
 export default async function FavoritesPage() {
   if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
@@ -30,20 +31,13 @@ export default async function FavoritesPage() {
     where: { userId: session.user.id },
     include: {
       deal: {
-        include: {
-          restaurant: true,
-          schedules: {
-            orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-          },
-          votes: true,
-          favorites: true,
-        },
+        include: dealWithRelationsInclude,
       },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  const deals = favorites.map((favorite) => favorite.deal) as DealWithRelations[];
+  const deals = resolveDeals(favorites.map((favorite) => favorite.deal) as DealWithRelations[]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">

@@ -20,6 +20,7 @@ const heroStats = [
 export default async function HomePage() {
   const featuredDeals = await getFeaturedDeals();
   const today = getCurrentDayOfWeek();
+  const hasSampleData = featuredDeals.some((deal) => deal.sampleDataActive);
 
   return (
     <div>
@@ -100,11 +101,15 @@ export default async function HomePage() {
 
       <section className="px-4 pb-12 sm:px-6 lg:px-8 lg:pb-16">
         <div className="mx-auto max-w-7xl">
-          {usePublicFallbackData ? (
+          {usePublicFallbackData || hasSampleData ? (
             <DeploymentStatusNotice
               compact
-              title="Showing demo deals"
-              message="This deployment is missing a runtime database connection, so public pages are using built-in sample deals instead of live submissions."
+              title={usePublicFallbackData ? "Showing demo deals" : "Some featured deals are sample data"}
+              message={
+                usePublicFallbackData
+                  ? "This deployment is missing a runtime database connection, so public pages are using built-in sample deals instead of live submissions."
+                  : "Sample-marked records are labeled in the UI so you can distinguish demos from live submissions."
+              }
             />
           ) : null}
 

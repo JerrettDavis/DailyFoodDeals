@@ -2,7 +2,17 @@ import { cn } from "@/lib/utils";
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: "verified" | "pending" | "rejected" | "approved" | "default" | "cuisine" | "category";
+  variant?:
+    | "verified"
+    | "pending"
+    | "rejected"
+    | "approved"
+    | "default"
+    | "cuisine"
+    | "category"
+    | "allLocations"
+    | "sample"
+    | "locationState";
   size?: "sm" | "md";
   className?: string;
 }
@@ -16,6 +26,9 @@ export function Badge({ children, variant = "default", size = "sm", className }:
     default: "border border-white/10 bg-white/[0.05] text-gray-300",
     cuisine: "border border-orange-400/20 bg-orange-500/10 text-orange-100",
     category: "border border-fuchsia-400/20 bg-fuchsia-500/10 text-fuchsia-100",
+    allLocations: "border border-violet-400/20 bg-violet-500/10 text-violet-100",
+    sample: "border border-amber-300/25 bg-amber-400/10 text-amber-100",
+    locationState: "border border-rose-400/20 bg-rose-500/10 text-rose-100",
   };
   const sizes = {
     sm: "px-2.5 py-1 text-[11px]",

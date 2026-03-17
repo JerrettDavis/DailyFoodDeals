@@ -100,6 +100,12 @@ export function formatCompactNumber(value: number) {
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
+export function formatDistanceMiles(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+
+  return value < 10 ? `${value.toFixed(1)} mi away` : `${Math.round(value)} mi away`;
+}
+
 export function getSafeExternalHref(rawUrl: string | null | undefined) {
   if (!rawUrl) return null;
 

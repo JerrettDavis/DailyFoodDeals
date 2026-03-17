@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 const VALID_DAY_VALUES = new Set([0, 1, 2, 3, 4, 5, 6]);
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PARTICIPATION_STATUSES = new Set(["PARTICIPATING", "NON_PARTICIPATING"]);
 
 function getRequiredText(formData: FormData, field: string) {
   const value = formData.get(field);
@@ -58,6 +59,10 @@ function redirectToSubmitError(message: string): never {
 
 function redirectToSubmitSuccess(message: string): never {
   redirect(`/submit?success=${encodeURIComponent(message)}`);
+}
+
+function redirectToDealMessage(dealId: string, key: "success" | "error", message: string): never {
+  redirect(`/deals/${dealId}?${key}=${encodeURIComponent(message)}`);
 }
 
 export async function submitDeal(formData: FormData) {
@@ -153,6 +158,7 @@ export async function submitDeal(formData: FormData) {
   await prisma.deal.create({
     data: {
       restaurantId: restaurant.id,
+      brandId: restaurant.brandId ?? null,
       title,
       description,
       priceInfo: getOptionalText(formData, "priceInfo"),
@@ -223,4 +229,88 @@ export async function registerUser(formData: FormData): Promise<{ error: string 
   await prisma.user.create({
     data: { email, name, password: hashed },
   });
+}
+
+export async function suggestLocationParticipation(formData: FormData) {
+  if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
+    redirect("/");
+  }
+
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/auth/signin");
+  }
+
+  const dealId = getRequiredText(formData, "dealId");
+  const restaurantId = getRequiredText(formData, "restaurantId");
+  const requestedStatus = getRequiredText(formData, "requestedStatus");
+  const notes = getOptionalText(formData, "notes");
+  const sourceUrl = getOptionalHttpUrl(formData, "sourceUrl");
+
+  if (!dealId || !restaurantId || !requestedStatus) {
+    redirect("/");
+  }
+
+  if (!PARTICIPATION_STATUSES.has(requestedStatus)) {
+    redirectToDealMessage(dealId, "error", "Invalid participation status.");
+  }
+
+  if (sourceUrl === null) {
+    redirectToDealMessage(dealId, "error", "Please enter a valid source URL starting with http:// or https://.");
+  }
+
+  const deal = await prisma.deal.findUnique({
+    where: { id: dealId },
+    select: {
+      id: true,
+      brandId: true,
+      scope: true,
+    },
+  });
+
+  if (!deal?.brandId || deal.scope !== "ALL_LOCATIONS") {
+    redirectToDealMessage(dealId, "error", "Participation suggestions are only available for all-location deals.");
+  }
+
+  const restaurant = await prisma.restaurant.findFirst({
+    where: {
+      id: restaurantId,
+      brandId: deal.brandId,
+    },
+    select: { id: true },
+  });
+
+  if (!restaurant) {
+    redirectToDealMessage(dealId, "error", "That location is not part of this deal.");
+  }
+
+  const existingPendingReview = await prisma.dealLocationParticipationReview.findFirst({
+    where: {
+      dealId,
+      restaurantId,
+      submittedById: session.user.id,
+      status: "PENDING",
+    },
+    select: { id: true },
+  });
+
+  if (existingPendingReview) {
+    redirectToDealMessage(dealId, "success", "Your participation note is already pending review.");
+  }
+
+  await prisma.dealLocationParticipationReview.create({
+    data: {
+      dealId,
+      restaurantId,
+      requestedStatus,
+      notes,
+      sourceUrl,
+      submittedById: session.user.id,
+      status: "PENDING",
+    },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath(`/deals/${dealId}`);
+  redirectToDealMessage(dealId, "success", "Thanks — your location update was submitted for review.");
 }

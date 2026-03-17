@@ -7,21 +7,25 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          String    @default("USER")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
-  deals         Deal[]    @relation("SubmittedDeals")
-  votes         Vote[]
-  reports       Report[]
-  favorites     Favorite[]
+  id                           String                          @id @default(cuid())
+  name                         String?
+  email                        String?                         @unique
+  emailVerified                DateTime?
+  image                        String?
+  password                     String?
+  role                         String                          @default("USER")
+  createdAt                    DateTime                        @default(now())
+  updatedAt                    DateTime                        @updatedAt
+  accounts                     Account[]
+  sessions                     Session[]
+  deals                        Deal[]                          @relation("SubmittedDeals")
+  votes                        Vote[]
+  reports                      Report[]
+  favorites                    Favorite[]
+  brandOwnerships              BrandOwner[]
+  locationParticipationUpdates DealLocationParticipation[]     @relation("LocationParticipationUpdatedBy")
+  participationReviewSubmits   DealLocationParticipationReview[] @relation("ParticipationReviewSubmittedBy")
+  participationReviewActions   DealLocationParticipationReview[] @relation("ParticipationReviewReviewedBy")
 }
 
 model Account {
@@ -56,53 +60,124 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Restaurant {
+model Brand {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  website     String?
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  restaurants Restaurant[]
+  deals       Deal[]
+  owners      BrandOwner[]
+}
+
+model BrandOwner {
   id        String   @id @default(cuid())
-  name      String
-  address   String
-  city      String
-  state     String
-  zip       String
-  latitude  Float?
-  longitude Float?
-  phone     String?
-  website   String?
+  brandId   String
+  userId    String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deals     Deal[]
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, userId])
+}
+
+model Restaurant {
+  id                   String                          @id @default(cuid())
+  brandId              String?
+  name                 String
+  address              String
+  city                 String
+  state                String
+  zip                  String
+  latitude             Float?
+  longitude            Float?
+  phone                String?
+  website              String?
+  isSampleData         Boolean                         @default(false)
+  createdAt            DateTime                        @default(now())
+  updatedAt            DateTime                        @updatedAt
+  brand                Brand?                          @relation(fields: [brandId], references: [id])
+  deals                Deal[]
+  dealParticipations   DealLocationParticipation[]
+  participationReviews DealLocationParticipationReview[]
 }
 
 model Deal {
-  id                  String        @id @default(cuid())
-  restaurantId        String
-  title               String
-  description         String
-  priceInfo           String?
-  dineIn              Boolean       @default(true)
-  toGo                Boolean       @default(false)
-  kidFriendly         Boolean       @default(false)
-  alcoholAvailable    Boolean       @default(false)
-  kidsEatFree         Boolean       @default(false)
-  vegetarianFriendly  Boolean       @default(false)
-  familyFriendly      Boolean       @default(false)
-  lateNight           Boolean       @default(false)
-  cuisineType         String?
-  category            String?
-  status              String        @default("PENDING")
-  verified            Boolean       @default(false)
-  verifiedAt          DateTime?
-  lastConfirmedAt     DateTime?
-  sourceUrl           String?
-  notes               String?
-  submittedById       String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  restaurant          Restaurant    @relation(fields: [restaurantId], references: [id])
-  submittedBy         User?         @relation("SubmittedDeals", fields: [submittedById], references: [id])
-  schedules           DealSchedule[]
-  votes               Vote[]
-  reports             Report[]
-  favorites           Favorite[]
+  id                   String                          @id @default(cuid())
+  restaurantId         String
+  brandId              String?
+  title                String
+  description          String
+  priceInfo            String?
+  dineIn               Boolean                         @default(true)
+  toGo                 Boolean                         @default(false)
+  kidFriendly          Boolean                         @default(false)
+  alcoholAvailable     Boolean                         @default(false)
+  kidsEatFree          Boolean                         @default(false)
+  vegetarianFriendly   Boolean                         @default(false)
+  familyFriendly       Boolean                         @default(false)
+  lateNight            Boolean                         @default(false)
+  cuisineType          String?
+  category             String?
+  scope                String                          @default("LOCATION")
+  status               String                          @default("PENDING")
+  verified             Boolean                         @default(false)
+  isSampleData         Boolean                         @default(false)
+  verifiedAt           DateTime?
+  lastConfirmedAt      DateTime?
+  sourceUrl            String?
+  notes                String?
+  submittedById        String?
+  createdAt            DateTime                        @default(now())
+  updatedAt            DateTime                        @updatedAt
+  restaurant           Restaurant                      @relation(fields: [restaurantId], references: [id])
+  brand                Brand?                          @relation(fields: [brandId], references: [id])
+  submittedBy          User?                           @relation("SubmittedDeals", fields: [submittedById], references: [id])
+  schedules            DealSchedule[]
+  votes                Vote[]
+  reports              Report[]
+  favorites            Favorite[]
+  locationParticipations DealLocationParticipation[]
+  participationReviews DealLocationParticipationReview[]
+}
+
+model DealLocationParticipation {
+  id          String   @id @default(cuid())
+  dealId       String
+  restaurantId String
+  status       String   @default("PARTICIPATING")
+  source       String   @default("ADMIN_DIRECT")
+  notes        String?
+  updatedById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deal         Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  updatedBy    User?    @relation("LocationParticipationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([dealId, restaurantId])
+}
+
+model DealLocationParticipationReview {
+  id              String   @id @default(cuid())
+  dealId          String
+  restaurantId    String
+  requestedStatus String
+  status          String   @default("PENDING")
+  sourceUrl       String?
+  notes           String?
+  submittedById   String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deal            Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  submittedBy     User?    @relation("ParticipationReviewSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  reviewedBy      User?    @relation("ParticipationReviewReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
 }
 
 model DealSchedule {

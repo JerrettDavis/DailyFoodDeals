@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import bcrypt from "bcryptjs";
+import { getConfiguredAdminEmails, isProductionSeedEnvironment } from "../src/lib/admin-config";
 import { getDatabaseUrl, getLibSqlAuthToken } from "../src/lib/database-config";
 
 const prisma = new PrismaClient({
@@ -18,30 +19,93 @@ const prisma = new PrismaClient({
 
 async function main() {
   console.log("Seeding database...");
+  const isProductionSeed = isProductionSeedEnvironment();
+  const configuredAdminEmails = getConfiguredAdminEmails();
+  let adminUserId: string | null = null;
+  let defaultUserId: string | null = null;
 
-  const adminPassword = await bcrypt.hash("admin123", 12);
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@dailyfooddeals.com" },
-    update: {},
-    create: {
-      email: "admin@dailyfooddeals.com",
-      name: "Admin User",
-      password: adminPassword,
-      role: "ADMIN",
-    },
-  });
+  if (isProductionSeed) {
+    const [promotedAdmins, existingConfiguredAdmin, genericAdminResult, genericUserResult] =
+      await Promise.all([
+        configuredAdminEmails.length > 0
+          ? prisma.user.updateMany({
+              where: { email: { in: configuredAdminEmails } },
+              data: { role: "ADMIN" },
+            })
+          : Promise.resolve({ count: 0 }),
+        configuredAdminEmails.length > 0
+          ? prisma.user.findFirst({
+              where: { email: { in: configuredAdminEmails } },
+              select: { id: true },
+            })
+          : Promise.resolve(null),
+        prisma.user.updateMany({
+          where: { email: "admin@dailyfooddeals.com" },
+          data: {
+            role: "USER",
+            password: null,
+          },
+        }),
+        prisma.user.updateMany({
+          where: { email: "user@example.com" },
+          data: {
+            password: null,
+          },
+        }),
+      ]);
 
-  const userPassword = await bcrypt.hash("user1234", 12);
-  const user = await prisma.user.upsert({
-    where: { email: "user@example.com" },
-    update: {},
-    create: {
-      email: "user@example.com",
-      name: "Test User",
-      password: userPassword,
-      role: "USER",
-    },
-  });
+    adminUserId = existingConfiguredAdmin?.id ?? null;
+
+    if (configuredAdminEmails.length > 0 && promotedAdmins.count === 0) {
+      console.warn("No existing users matched ADMIN_EMAILS, so no production admin was promoted.");
+    }
+    if (genericAdminResult.count > 0) {
+      console.log("Disabled the generic seeded admin account for production.");
+    }
+    if (genericUserResult.count > 0) {
+      console.log("Disabled the generic seeded user password for production.");
+    }
+  } else {
+    const adminPassword = await bcrypt.hash("admin123", 12);
+    const admin = await prisma.user.upsert({
+      where: { email: "admin@dailyfooddeals.com" },
+      update: {},
+      create: {
+        email: "admin@dailyfooddeals.com",
+        name: "Admin User",
+        password: adminPassword,
+        role: "ADMIN",
+      },
+    });
+
+    const userPassword = await bcrypt.hash("user1234", 12);
+    const user = await prisma.user.upsert({
+      where: { email: "user@example.com" },
+      update: {},
+      create: {
+        email: "user@example.com",
+        name: "Test User",
+        password: userPassword,
+        role: "USER",
+      },
+    });
+
+    adminUserId = admin.id;
+    defaultUserId = user.id;
+  }
+
+  const whataburgerBrand = !isProductionSeed
+    ? await prisma.brand.upsert({
+        where: { slug: "whataburger" },
+        update: {},
+        create: {
+          name: "Whataburger",
+          slug: "whataburger",
+          website: "https://whataburger.com",
+          description: "Brand-wide sample offers used to demonstrate multi-location deal support.",
+        },
+      })
+    : null;
 
   const restaurants = await Promise.all([
     prisma.restaurant.create({
@@ -132,8 +196,95 @@ async function main() {
   ]);
 
   const [joes, tacoFiesta, sakura, italianGarden, dragonPalace, pubGrill, pizzaPalace] = restaurants;
+  let whataburgerDowntown: { id: string } | null = null;
+  let whataburgerSouth: { id: string } | null = null;
+  let whataburgerNorth: { id: string } | null = null;
+
+  if (whataburgerBrand) {
+    const whataburgerRestaurants = await Promise.all([
+      prisma.restaurant.create({
+        data: {
+          brandId: whataburgerBrand.id,
+          name: "Whataburger - Downtown",
+          address: "201 Congress Ave",
+          city: "Austin",
+          state: "TX",
+          zip: "78701",
+          latitude: 30.2641,
+          longitude: -97.7426,
+          phone: "(512) 555-0201",
+          website: "https://whataburger.com",
+          isSampleData: true,
+        },
+      }),
+      prisma.restaurant.create({
+        data: {
+          brandId: whataburgerBrand.id,
+          name: "Whataburger - South Lamar",
+          address: "2400 S Lamar Blvd",
+          city: "Austin",
+          state: "TX",
+          zip: "78704",
+          latitude: 30.2437,
+          longitude: -97.7794,
+          phone: "(512) 555-0202",
+          website: "https://whataburger.com",
+          isSampleData: true,
+        },
+      }),
+      prisma.restaurant.create({
+        data: {
+          brandId: whataburgerBrand.id,
+          name: "Whataburger - North Austin",
+          address: "10400 Research Blvd",
+          city: "Austin",
+          state: "TX",
+          zip: "78759",
+          latitude: 30.3909,
+          longitude: -97.7467,
+          phone: "(512) 555-0203",
+          website: "https://whataburger.com",
+          isSampleData: true,
+        },
+      }),
+    ]);
+
+    [whataburgerDowntown, whataburgerSouth, whataburgerNorth] = whataburgerRestaurants;
+  }
 
   const deals = [
+    ...(whataburgerBrand && whataburgerDowntown
+      ? [
+          {
+            restaurantId: whataburgerDowntown.id,
+            brandId: whataburgerBrand.id,
+            title: "Whataburger App Free Fries",
+            description: "Use the app offer for a free medium fry with any combo meal at participating Whataburger locations.",
+            priceInfo: "Free medium fries with combo",
+            dineIn: true,
+            toGo: true,
+            kidFriendly: true,
+            familyFriendly: true,
+            cuisineType: "Burgers",
+            category: "Daily Special",
+            scope: "ALL_LOCATIONS",
+            status: "APPROVED" as const,
+            verified: true,
+            isSampleData: true,
+            verifiedAt: new Date(),
+            submittedById: adminUserId,
+            schedules: {
+              create: [
+                { dayOfWeek: 1, startTime: "10:00", endTime: "22:00" },
+                { dayOfWeek: 2, startTime: "10:00", endTime: "22:00" },
+                { dayOfWeek: 3, startTime: "10:00", endTime: "22:00" },
+                { dayOfWeek: 4, startTime: "10:00", endTime: "22:00" },
+                { dayOfWeek: 5, startTime: "10:00", endTime: "22:00" },
+              ],
+            },
+          },
+        ]
+      : []),
     {
       restaurantId: joes.id,
       title: "Monday Burger Night",
@@ -148,7 +299,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: user.id,
+      submittedById: defaultUserId,
       schedules: { create: [{ dayOfWeek: 1, startTime: "11:00", endTime: "21:00" }] },
     },
     {
@@ -165,7 +316,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: user.id,
+      submittedById: defaultUserId,
       schedules: {
         create: [
           { dayOfWeek: 1, startTime: "16:00", endTime: "18:00" },
@@ -191,7 +342,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: user.id,
+      submittedById: defaultUserId,
       schedules: { create: [{ dayOfWeek: 2, startTime: "11:00", endTime: "22:00" }] },
     },
     {
@@ -209,7 +360,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: admin.id,
+      submittedById: adminUserId,
       schedules: { create: [{ dayOfWeek: 5, startTime: "17:00", endTime: "21:00" }] },
     },
     {
@@ -225,7 +376,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: user.id,
+      submittedById: defaultUserId,
       schedules: { create: [{ dayOfWeek: 3, startTime: "17:00", endTime: "22:00" }] },
     },
     {
@@ -239,7 +390,7 @@ async function main() {
       category: "Lunch Special",
       status: "APPROVED" as const,
       verified: false,
-      submittedById: user.id,
+      submittedById: defaultUserId,
       schedules: {
         create: [
           { dayOfWeek: 1, startTime: "11:00", endTime: "14:00" },
@@ -264,7 +415,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: admin.id,
+      submittedById: adminUserId,
       schedules: { create: [{ dayOfWeek: 4, startTime: "17:00", endTime: "22:00" }] },
     },
     {
@@ -282,7 +433,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: admin.id,
+      submittedById: adminUserId,
       schedules: { create: [{ dayOfWeek: 0, startTime: "10:00", endTime: "14:00" }] },
     },
     {
@@ -299,7 +450,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: user.id,
+      submittedById: defaultUserId,
       schedules: { create: [{ dayOfWeek: 6, startTime: "09:00", endTime: "13:00" }] },
     },
     {
@@ -313,7 +464,7 @@ async function main() {
       category: "Lunch Special",
       status: "APPROVED" as const,
       verified: false,
-      submittedById: user.id,
+      submittedById: defaultUserId,
       schedules: { create: [{ dayOfWeek: 1, startTime: "11:30", endTime: "15:00" }] },
     },
     {
@@ -330,7 +481,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: user.id,
+      submittedById: defaultUserId,
       schedules: {
         create: [
           { dayOfWeek: 4, startTime: "22:00", endTime: "00:00" },
@@ -352,7 +503,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: admin.id,
+      submittedById: adminUserId,
       schedules: {
         create: [
           { dayOfWeek: 0, startTime: "12:00", endTime: "20:00" },
@@ -375,7 +526,7 @@ async function main() {
       status: "APPROVED" as const,
       verified: true,
       verifiedAt: new Date(),
-      submittedById: admin.id,
+      submittedById: adminUserId,
       schedules: { create: [{ dayOfWeek: 2, startTime: "17:00", endTime: "21:00" }] },
     },
     {
@@ -390,7 +541,7 @@ async function main() {
       category: "Daily Special",
       status: "APPROVED" as const,
       verified: false,
-      submittedById: user.id,
+      submittedById: defaultUserId,
       schedules: { create: [{ dayOfWeek: 1, startTime: "11:00", endTime: "22:00" }] },
     },
     {
@@ -406,7 +557,7 @@ async function main() {
       category: "Weekend Special",
       status: "PENDING" as const,
       verified: false,
-      submittedById: user.id,
+      submittedById: defaultUserId,
       schedules: {
         create: [
           { dayOfWeek: 0, startTime: "10:00", endTime: "14:00" },
@@ -416,13 +567,49 @@ async function main() {
     },
   ];
 
+  let whataburgerDealId: string | null = null;
   for (const dealData of deals) {
-    await prisma.deal.create({ data: dealData });
+    const createdDeal = await prisma.deal.create({ data: dealData });
+    if (createdDeal.title === "Whataburger App Free Fries") {
+      whataburgerDealId = createdDeal.id;
+    }
+  }
+
+  if (whataburgerDealId && whataburgerNorth && whataburgerSouth) {
+    await prisma.dealLocationParticipation.create({
+      data: {
+        dealId: whataburgerDealId,
+        restaurantId: whataburgerNorth.id,
+        status: "NON_PARTICIPATING",
+        source: "REVIEW_APPROVED",
+        notes: "Sample excluded location for multi-location deal demos.",
+        updatedById: adminUserId,
+      },
+    });
+
+    await prisma.dealLocationParticipationReview.create({
+      data: {
+        dealId: whataburgerDealId,
+        restaurantId: whataburgerSouth.id,
+        requestedStatus: "NON_PARTICIPATING",
+        status: "PENDING",
+        notes: "Community report: app coupon was not accepted at this location last week.",
+        submittedById: defaultUserId,
+      },
+    });
   }
 
   console.log("✅ Seed complete!");
-  console.log("  Admin: admin@dailyfooddeals.com / admin123");
-  console.log("  User:  user@example.com / user1234");
+  if (isProductionSeed) {
+    if (configuredAdminEmails.length > 0) {
+      console.log("  Applied any production admin promotions from ADMIN_EMAILS.");
+    } else {
+      console.log("  No ADMIN_EMAILS configured. Production seed did not create a generic admin account.");
+    }
+  } else {
+    console.log("  Admin: admin@dailyfooddeals.com / admin123");
+    console.log("  User:  user@example.com / user1234");
+  }
 }
 
 main()

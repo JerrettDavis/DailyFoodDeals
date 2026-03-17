@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
-import type { DealWithRelations } from "@/types";
+import { dealWithRelationsInclude, type DealWithRelations, type ResolvedDeal } from "@/types";
 import { fallbackDeals } from "./fallback-deals";
+import { parseUserCoordinates, resolveDeal, resolveDeals } from "./deal-resolver";
 import { usePublicFallbackData } from "./runtime-config";
 
 export type DealSearchFilters = {
@@ -13,11 +14,23 @@ export type DealSearchFilters = {
   search?: string;
   dineIn?: string;
   toGo?: string;
+  lat?: string;
+  lng?: string;
 };
 
-function sortDeals(deals: DealWithRelations[]) {
+function sortDeals(deals: ResolvedDeal[]) {
   return [...deals].sort((a, b) => {
     if (a.verified !== b.verified) return a.verified ? -1 : 1;
+
+    const leftDistance = a.nearestLocation?.distanceMiles ?? null;
+    const rightDistance = b.nearestLocation?.distanceMiles ?? null;
+
+    if (leftDistance !== null && rightDistance !== null) {
+      return leftDistance - rightDistance;
+    }
+    if (leftDistance !== null) return -1;
+    if (rightDistance !== null) return 1;
+
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
 }
@@ -27,7 +40,7 @@ function filterFallbackDeals(filters: DealSearchFilters): DealWithRelations[] {
   const parsedDay =
     filters.day !== undefined && filters.day.trim() !== "" ? Number(filters.day) : undefined;
 
-  return sortDeals(fallbackDeals).filter((deal) => {
+  return fallbackDeals.filter((deal) => {
     if (filters.verified === "true" && !deal.verified) return false;
     if (filters.kidFriendly === "true" && !deal.kidFriendly) return false;
     if (filters.dineIn === "true" && !deal.dineIn) return false;
@@ -49,10 +62,18 @@ function filterFallbackDeals(filters: DealSearchFilters): DealWithRelations[] {
         deal.title,
         deal.description,
         deal.restaurant.name,
+        deal.brand?.name,
         deal.restaurant.address,
         deal.restaurant.city,
         deal.restaurant.state,
-      ].map((value) => value.toLowerCase());
+        ...deal.locationParticipations.map((location) => location.restaurant.name),
+        ...deal.locationParticipations.map((location) => location.restaurant.address),
+        ...deal.locationParticipations.map((location) => location.restaurant.city),
+        ...deal.locationParticipations.map((location) => location.restaurant.state),
+      ]
+        .filter((value): value is string => Boolean(value))
+        .map((value) => value.toLowerCase());
+
       if (!haystacks.some((value) => value.includes(search))) return false;
     }
 
@@ -60,31 +81,26 @@ function filterFallbackDeals(filters: DealSearchFilters): DealWithRelations[] {
   });
 }
 
-export async function getFeaturedDeals(): Promise<DealWithRelations[]> {
+export async function getFeaturedDeals(): Promise<ResolvedDeal[]> {
   if (usePublicFallbackData) {
-    return sortDeals(fallbackDeals).slice(0, 6);
+    return sortDeals(resolveDeals(fallbackDeals)).slice(0, 6);
   }
 
   const deals = await prisma.deal.findMany({
     where: { status: "APPROVED" },
-    include: {
-      restaurant: true,
-      schedules: {
-        orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-      },
-      votes: true,
-      favorites: true,
-    },
+    include: dealWithRelationsInclude,
     orderBy: { createdAt: "desc" },
     take: 6,
   });
 
-  return deals as DealWithRelations[];
+  return sortDeals(resolveDeals(deals as DealWithRelations[])).slice(0, 6);
 }
 
-export async function getPublicDeals(filters: DealSearchFilters): Promise<DealWithRelations[]> {
+export async function getPublicDeals(filters: DealSearchFilters): Promise<ResolvedDeal[]> {
+  const userCoordinates = parseUserCoordinates(filters);
+
   if (usePublicFallbackData) {
-    return filterFallbackDeals(filters);
+    return sortDeals(resolveDeals(filterFallbackDeals(filters), userCoordinates));
   }
 
   const where: Prisma.DealWhereInput = { status: "APPROVED" };
@@ -106,6 +122,11 @@ export async function getPublicDeals(filters: DealSearchFilters): Promise<DealWi
       { restaurant: { is: { address: { contains: filters.search } } } },
       { restaurant: { is: { city: { contains: filters.search } } } },
       { restaurant: { is: { state: { contains: filters.search } } } },
+      { brand: { is: { name: { contains: filters.search } } } },
+      { brand: { is: { restaurants: { some: { name: { contains: filters.search } } } } } },
+      { brand: { is: { restaurants: { some: { address: { contains: filters.search } } } } } },
+      { brand: { is: { restaurants: { some: { city: { contains: filters.search } } } } } },
+      { brand: { is: { restaurants: { some: { state: { contains: filters.search } } } } } },
     ];
   }
 
@@ -115,36 +136,31 @@ export async function getPublicDeals(filters: DealSearchFilters): Promise<DealWi
 
   const deals = await prisma.deal.findMany({
     where,
-    include: {
-      restaurant: true,
-      schedules: {
-        orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-      },
-      votes: true,
-      favorites: true,
-    },
+    include: dealWithRelationsInclude,
     orderBy: [{ verified: "desc" }, { createdAt: "desc" }],
   });
 
-  return deals as DealWithRelations[];
+  return sortDeals(resolveDeals(deals as DealWithRelations[], userCoordinates));
 }
 
-export async function getPublicDealById(id: string): Promise<DealWithRelations | null> {
+export async function getPublicDealById(
+  id: string,
+  options?: {
+    lat?: string;
+    lng?: string;
+  }
+): Promise<ResolvedDeal | null> {
+  const userCoordinates = parseUserCoordinates(options);
+
   if (usePublicFallbackData) {
-    return fallbackDeals.find((deal) => deal.id === id) ?? null;
+    const fallbackDeal = fallbackDeals.find((deal) => deal.id === id) ?? null;
+    return fallbackDeal ? resolveDeal(fallbackDeal, userCoordinates) : null;
   }
 
   const deal = await prisma.deal.findUnique({
     where: { id },
-    include: {
-      restaurant: true,
-      schedules: {
-        orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-      },
-      votes: true,
-      favorites: true,
-    },
+    include: dealWithRelationsInclude,
   });
 
-  return deal as DealWithRelations | null;
+  return deal ? resolveDeal(deal as DealWithRelations, userCoordinates) : null;
 }

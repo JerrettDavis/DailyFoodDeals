@@ -58,3 +58,23 @@ test("admin can verify an unverified approved deal", async ({ page }) => {
   await page.getByText("Pizza Monday Deal").click();
   await expect(page.getByText("✓ Verified Deal")).toBeVisible();
 });
+
+test("admin can approve a community participation review for an all-location deal", async ({ page }) => {
+  await signIn(page, "admin@dailyfooddeals.com", "admin123");
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
+
+  const reviewCard = page
+    .locator("[data-testid^='participation-review-']")
+    .filter({ hasText: "Whataburger App Free Fries" })
+    .filter({ hasText: "Whataburger - South Lamar" });
+
+  await expect(reviewCard).toBeVisible();
+  await reviewCard.getByRole("button", { name: "Approve change" }).click();
+  await expect(reviewCard).not.toBeVisible();
+
+  await page.goto("/deals?search=Whataburger");
+  await page.getByRole("link", { name: /Whataburger App Free Fries/i }).click();
+  await expect(page.getByText("Currently not participating")).toBeVisible();
+  await expect(page.getByText("Whataburger - South Lamar")).toBeVisible();
+});
