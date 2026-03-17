@@ -45,9 +45,14 @@ function filterFallbackDeals(filters: DealSearchFilters): DealWithRelations[] {
     }
 
     if (search) {
-      const haystacks = [deal.title, deal.description, deal.restaurant.name].map((value) =>
-        value.toLowerCase()
-      );
+      const haystacks = [
+        deal.title,
+        deal.description,
+        deal.restaurant.name,
+        deal.restaurant.address,
+        deal.restaurant.city,
+        deal.restaurant.state,
+      ].map((value) => value.toLowerCase());
       if (!haystacks.some((value) => value.includes(search))) return false;
     }
 
@@ -64,7 +69,9 @@ export async function getFeaturedDeals(): Promise<DealWithRelations[]> {
     where: { status: "APPROVED" },
     include: {
       restaurant: true,
-      schedules: true,
+      schedules: {
+        orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+      },
       votes: true,
       favorites: true,
     },
@@ -96,6 +103,9 @@ export async function getPublicDeals(filters: DealSearchFilters): Promise<DealWi
       { title: { contains: filters.search } },
       { description: { contains: filters.search } },
       { restaurant: { is: { name: { contains: filters.search } } } },
+      { restaurant: { is: { address: { contains: filters.search } } } },
+      { restaurant: { is: { city: { contains: filters.search } } } },
+      { restaurant: { is: { state: { contains: filters.search } } } },
     ];
   }
 
@@ -107,7 +117,9 @@ export async function getPublicDeals(filters: DealSearchFilters): Promise<DealWi
     where,
     include: {
       restaurant: true,
-      schedules: true,
+      schedules: {
+        orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+      },
       votes: true,
       favorites: true,
     },
@@ -126,7 +138,9 @@ export async function getPublicDealById(id: string): Promise<DealWithRelations |
     where: { id },
     include: {
       restaurant: true,
-      schedules: true,
+      schedules: {
+        orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+      },
       votes: true,
       favorites: true,
     },

@@ -3,22 +3,34 @@ import { cn } from "@/lib/utils";
 interface BadgeProps {
   children: React.ReactNode;
   variant?: "verified" | "pending" | "rejected" | "approved" | "default" | "cuisine" | "category";
+  size?: "sm" | "md";
   className?: string;
 }
 
-export function Badge({ children, variant = "default", className }: BadgeProps) {
+export function Badge({ children, variant = "default", size = "sm", className }: BadgeProps) {
   const variants = {
-    verified: "bg-green-500/20 text-green-400 border border-green-500/30",
-    pending: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
-    rejected: "bg-red-500/20 text-red-400 border border-red-500/30",
-    approved: "bg-blue-500/20 text-blue-400 border border-blue-500/30",
-    default: "bg-gray-700 text-gray-300",
-    cuisine: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
-    category: "bg-purple-500/20 text-purple-400 border border-purple-500/30",
+    verified: "border border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
+    pending: "border border-amber-400/20 bg-amber-500/10 text-amber-100",
+    rejected: "border border-red-400/20 bg-red-500/10 text-red-100",
+    approved: "border border-sky-400/20 bg-sky-500/10 text-sky-100",
+    default: "border border-white/10 bg-white/[0.05] text-gray-300",
+    cuisine: "border border-orange-400/20 bg-orange-500/10 text-orange-100",
+    category: "border border-fuchsia-400/20 bg-fuchsia-500/10 text-fuchsia-100",
+  };
+  const sizes = {
+    sm: "px-2.5 py-1 text-[11px]",
+    md: "px-3 py-1 text-xs",
   };
 
   return (
-    <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", variants[variant], className)}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full font-medium uppercase tracking-[0.16em]",
+        variants[variant],
+        sizes[size],
+        className
+      )}
+    >
       {children}
     </span>
   );

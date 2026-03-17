@@ -30,7 +30,7 @@ test("admin can approve a newly submitted pending deal and it becomes publicly v
   await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
 
   const pendingCard = page
-    .locator("div.bg-gray-900.border.border-gray-800.rounded-xl")
+    .locator("[data-testid^='pending-deal-']")
     .filter({ hasText: dealTitle })
     .filter({ has: page.getByRole("button", { name: "✓ Approve" }) });
   await expect(pendingCard).toBeVisible();
@@ -47,7 +47,7 @@ test("admin can verify an unverified approved deal", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
 
   const verifyRow = page
-    .locator("div.bg-gray-900.border.border-gray-800.rounded-xl")
+    .locator("[data-testid^='verify-deal-']")
     .filter({ hasText: "Pizza Monday Deal" })
     .filter({ has: page.getByRole("button", { name: "✓ Verify" }) });
   await expect(verifyRow).toBeVisible();

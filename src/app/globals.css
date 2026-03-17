@@ -1,14 +1,57 @@
 @import "tailwindcss";
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 9, 9, 11;
-  --background-end-rgb: 9, 9, 11;
+  --foreground-rgb: 248, 250, 252;
+  --background-start-rgb: 8, 10, 16;
+  --background-mid-rgb: 11, 14, 21;
+  --background-end-rgb: 17, 19, 27;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  background:
+    radial-gradient(circle at top, rgba(249, 115, 22, 0.12), transparent 30%),
+    radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.08), transparent 25%),
+    linear-gradient(180deg, rgb(var(--background-start-rgb)) 0%, rgb(var(--background-mid-rgb)) 45%, rgb(var(--background-end-rgb)) 100%);
+  min-height: 100vh;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(249, 115, 22, 0.28);
+  color: white;
+}
+
+a,
+button,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.leaflet-container {
+  background: #0f172a;
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #111827;
+  color: #f8fafc;
+}
+
+.leaflet-control-attribution {
+  background: rgba(10, 14, 20, 0.72) !important;
+  color: #94a3b8 !important;
+}
+
+.leaflet-control-attribution a {
+  color: #f8fafc !important;
 }
 
 @layer utilities {

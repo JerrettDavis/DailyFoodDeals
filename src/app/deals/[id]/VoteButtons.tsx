@@ -1,9 +1,11 @@
 "use client";
+
+import { useTransition } from "react";
 import { voteDeal } from "@/actions/votes";
 import { Button } from "@/components/ui/Button";
+import { CheckCircleIcon, ClockIcon } from "@/components/ui/icons";
 
 type VoteType = "UP" | "DOWN" | "CONFIRM" | "EXPIRED";
-import { useTransition } from "react";
 
 interface VoteButtonsProps {
   dealId: string;
@@ -22,7 +24,7 @@ export function VoteButtons({ dealId, upvotes, downvotes, userVote }: VoteButton
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap gap-3">
       <Button
         variant={userVote === "UP" ? "primary" : "secondary"}
         size="sm"
@@ -32,11 +34,12 @@ export function VoteButtons({ dealId, upvotes, downvotes, userVote }: VoteButton
         👍 {upvotes}
       </Button>
       <Button
-        variant={userVote === "CONFIRM" ? "primary" : "secondary"}
+        variant={userVote === "CONFIRM" ? "outline" : "secondary"}
         size="sm"
         onClick={() => handleVote("CONFIRM")}
         disabled={isPending}
       >
+        <CheckCircleIcon size={16} />
         ✅ Confirm
       </Button>
       <Button
@@ -53,6 +56,7 @@ export function VoteButtons({ dealId, upvotes, downvotes, userVote }: VoteButton
         onClick={() => handleVote("EXPIRED")}
         disabled={isPending}
       >
+        <ClockIcon size={16} />
         ⏰ Expired
       </Button>
     </div>

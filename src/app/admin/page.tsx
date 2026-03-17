@@ -3,9 +3,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { approveDeal, rejectDeal, verifyDeal } from "@/actions/admin";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { DeploymentStatusNotice } from "@/components/system/DeploymentStatusNotice";
-import { getDayName, formatTime } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AlertIcon, CheckCircleIcon, ShieldIcon, SparklesIcon } from "@/components/ui/icons";
 import { canUseRuntimeAuth, hasRuntimeDatabase } from "@/lib/runtime-config";
+import { formatTime, getDayName } from "@/lib/utils";
 
 export default async function AdminPage() {
   if (!canUseRuntimeAuth || !hasRuntimeDatabase) {
@@ -29,7 +34,9 @@ export default async function AdminPage() {
       where: { status: "PENDING" },
       include: {
         restaurant: true,
-        schedules: true,
+        schedules: {
+          orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+        },
         votes: true,
         favorites: true,
         submittedBy: { select: { name: true, email: true } },
@@ -38,7 +45,14 @@ export default async function AdminPage() {
     }),
     prisma.deal.findMany({
       where: { status: "APPROVED", verified: false },
-      include: { restaurant: true, schedules: true, votes: true, favorites: true },
+      include: {
+        restaurant: true,
+        schedules: {
+          orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+        },
+        votes: true,
+        favorites: true,
+      },
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
@@ -53,109 +67,136 @@ export default async function AdminPage() {
   ]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
-      <div className="flex gap-4 mb-8">
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-3 text-center">
-          <div className="text-2xl font-bold text-yellow-400">{pendingDeals.length}</div>
-          <div className="text-yellow-400/70 text-sm">Pending</div>
-        </div>
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 text-center">
-          <div className="text-2xl font-bold text-blue-400">{approvedDeals.length}</div>
-          <div className="text-blue-400/70 text-sm">Unverified</div>
-        </div>
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-center">
-          <div className="text-2xl font-bold text-red-400">{reports.length}</div>
-          <div className="text-red-400/70 text-sm">Reports</div>
-        </div>
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <PageHeader
+        eyebrow="Moderation workspace"
+        title="Admin Dashboard"
+        description="Review fresh submissions, verify approved deals, and keep the public feed trustworthy."
+      />
+
+      <div className="mb-8 grid gap-4 md:grid-cols-3">
+        {[
+          { title: "Pending", value: pendingDeals.length, icon: <SparklesIcon size={18} />, tone: "text-amber-100 bg-amber-500/10 border-amber-500/20" },
+          { title: "Needs Verification", value: approvedDeals.length, icon: <CheckCircleIcon size={18} />, tone: "text-sky-100 bg-sky-500/10 border-sky-500/20" },
+          { title: "Open Reports", value: reports.length, icon: <AlertIcon size={18} />, tone: "text-red-100 bg-red-500/10 border-red-500/20" },
+        ].map((stat) => (
+          <Card key={stat.title} className="p-5">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${stat.tone}`}>
+              {stat.icon}
+            </div>
+            <p className="mt-4 text-sm uppercase tracking-[0.2em] text-gray-500">{stat.title}</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{stat.value}</p>
+          </Card>
+        ))}
       </div>
 
-      {/* Pending deals */}
-      <section className="mb-12">
-        <h2 className="text-xl font-bold text-white mb-4">⏳ Pending Deals</h2>
+      <section className="mb-10 space-y-4">
+        <h2 className="text-xl font-semibold text-white">Pending Deals</h2>
         {pendingDeals.length === 0 ? (
-          <p className="text-gray-400">No pending deals. 🎉</p>
+          <EmptyState
+            icon={<SparklesIcon size={22} />}
+            title="No pending deals"
+            description="Everything in the queue is already handled. New submissions will show up here automatically."
+          />
         ) : (
           <div className="space-y-4">
             {pendingDeals.map((deal) => (
-              <div key={deal.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <div className="flex flex-col md:flex-row md:items-start gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="pending">PENDING</Badge>
-                      {deal.cuisineType && <Badge variant="cuisine">{deal.cuisineType}</Badge>}
+              <Card key={deal.id} className="p-5" data-testid={`pending-deal-${deal.id}`}>
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="pending">Pending</Badge>
+                      {deal.cuisineType ? <Badge variant="cuisine">{deal.cuisineType}</Badge> : null}
                     </div>
-                    <h3 className="font-semibold text-white text-lg">{deal.title}</h3>
-                    <p className="text-gray-400 text-sm">{deal.restaurant.name} · {deal.restaurant.city}, {deal.restaurant.state}</p>
-                    <p className="text-gray-300 text-sm mt-2">{deal.description}</p>
-                    {deal.priceInfo && <p className="text-orange-400 font-medium mt-1">{deal.priceInfo}</p>}
-                    {deal.schedules.length > 0 && (
-                      <p className="text-gray-500 text-sm mt-1">
-                        {deal.schedules.map(s => `${getDayName(s.dayOfWeek)} ${formatTime(s.startTime)}-${formatTime(s.endTime)}`).join(", ")}
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">{deal.title}</h3>
+                      <p className="mt-1 text-sm text-gray-400">
+                        {deal.restaurant.name} • {deal.restaurant.city}, {deal.restaurant.state}
                       </p>
-                    )}
-                    {deal.submittedBy && (
-                      <p className="text-gray-500 text-xs mt-2">Submitted by: {deal.submittedBy.name ?? deal.submittedBy.email}</p>
-                    )}
+                    </div>
+                    <p className="max-w-3xl text-sm leading-6 text-gray-300">{deal.description}</p>
+                    {deal.priceInfo ? <p className="text-sm font-semibold text-orange-200">{deal.priceInfo}</p> : null}
+                    {deal.schedules.length > 0 ? (
+                      <p className="text-sm text-gray-500">
+                        {deal.schedules.map((schedule) => `${getDayName(schedule.dayOfWeek)} ${formatTime(schedule.startTime)}-${formatTime(schedule.endTime)}`).join(", ")}
+                      </p>
+                    ) : null}
+                    {deal.submittedBy ? (
+                      <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
+                        Submitted by {deal.submittedBy.name ?? deal.submittedBy.email}
+                      </p>
+                    ) : null}
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex flex-wrap gap-3">
                     <form action={approveDeal.bind(null, deal.id)}>
-                      <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                      <Button type="submit" className="min-w-32">
                         ✓ Approve
-                      </button>
+                      </Button>
                     </form>
                     <form action={rejectDeal.bind(null, deal.id)}>
-                      <button type="submit" className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                      <Button type="submit" variant="danger" className="min-w-32">
                         ✗ Reject
-                      </button>
+                      </Button>
                     </form>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
       </section>
 
-      {/* Approved but unverified */}
-      <section className="mb-12">
-        <h2 className="text-xl font-bold text-white mb-4">🔍 Approved - Needs Verification</h2>
+      <section className="mb-10 space-y-4">
+        <h2 className="text-xl font-semibold text-white">Approved • Needs Verification</h2>
         {approvedDeals.length === 0 ? (
-          <p className="text-gray-400">All approved deals are verified!</p>
+          <EmptyState
+            icon={<ShieldIcon size={22} />}
+            title="Everything approved is already verified"
+            description="You’re caught up. Newly approved deals will show up here until someone verifies them."
+          />
         ) : (
-          <div className="space-y-3">
+          <div className="grid gap-4 lg:grid-cols-2">
             {approvedDeals.map((deal) => (
-              <div key={deal.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-medium text-white">{deal.title}</h3>
-                  <p className="text-gray-400 text-sm">{deal.restaurant.name}</p>
+              <Card key={deal.id} className="p-5" data-testid={`verify-deal-${deal.id}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">{deal.title}</h3>
+                    <p className="mt-1 text-sm text-gray-400">{deal.restaurant.name}</p>
+                  </div>
+                  <form action={verifyDeal.bind(null, deal.id)}>
+                    <Button type="submit" size="sm">
+                      ✓ Verify
+                    </Button>
+                  </form>
                 </div>
-                <form action={verifyDeal.bind(null, deal.id)}>
-                  <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                    ✓ Verify
-                  </button>
-                </form>
-              </div>
+              </Card>
             ))}
           </div>
         )}
       </section>
 
-      {/* Reports */}
-      {reports.length > 0 && (
-        <section>
-          <h2 className="text-xl font-bold text-white mb-4">🚩 Reports</h2>
-          <div className="space-y-3">
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold text-white">Reports</h2>
+        {reports.length === 0 ? (
+          <EmptyState
+            icon={<CheckCircleIcon size={22} />}
+            title="No unresolved reports"
+            description="Reported issues will surface here if the community flags a deal for review."
+          />
+        ) : (
+          <div className="space-y-4">
             {reports.map((report) => (
-              <div key={report.id} className="bg-gray-900 border border-red-900/30 rounded-xl p-4">
-                <p className="text-white font-medium">{report.deal.title}</p>
-                <p className="text-gray-400 text-sm mt-1">Reason: {report.reason}</p>
-                <p className="text-gray-500 text-xs mt-1">Reported by: {report.user.name ?? report.user.email}</p>
-              </div>
+              <Card key={report.id} className="border-red-500/10 p-5">
+                <p className="text-lg font-semibold text-white">{report.deal.title}</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Reason: {report.reason}</p>
+                <p className="mt-2 text-xs uppercase tracking-[0.18em] text-gray-500">
+                  Reported by {report.user.name ?? report.user.email}
+                </p>
+              </Card>
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { SessionProvider } from "@/components/providers/SessionProvider";
@@ -17,11 +18,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-950 text-white min-h-screen flex flex-col font-sans">
+      <body className="min-h-screen bg-gray-950 font-sans text-white antialiased">
         <SessionProvider enabled={canUseRuntimeAuth}>
-          <Header authEnabled={canUseRuntimeAuth} />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <div className="relative flex min-h-screen flex-col">
+            <Header authEnabled={canUseRuntimeAuth} />
+            <main className="flex-1 pb-12">{children}</main>
+            <Footer />
+          </div>
         </SessionProvider>
       </body>
     </html>

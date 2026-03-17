@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { getDayName, formatTime } from "@/lib/utils";
+import { Card } from "@/components/ui/Card";
+import { CheckCircleIcon, ClockIcon, MapPinIcon } from "@/components/ui/icons";
+import { formatCompactNumber, formatTime, getDayName, getRestaurantAddress, hasCoordinates } from "@/lib/utils";
 import type { DealWithRelations } from "@/types";
 
 interface DealCardProps {
@@ -10,64 +11,92 @@ interface DealCardProps {
 }
 
 export function DealCard({ deal, showStatus = false }: DealCardProps) {
-  const upvotes = deal.votes.filter((v) => v.voteType === "UP" || v.voteType === "CONFIRM").length;
-  const schedule = deal.schedules[0];
+  const upvotes = deal.votes.filter((vote) => vote.voteType === "UP" || vote.voteType === "CONFIRM").length;
+  const schedule = [...deal.schedules].sort(
+    (left, right) => left.dayOfWeek - right.dayOfWeek || left.startTime.localeCompare(right.startTime)
+  )[0];
 
   return (
-    <Link href={`/deals/${deal.id}`}>
-      <Card className="hover:border-orange-500/50 transition-all cursor-pointer group h-full">
-        <div className="p-5 flex flex-col h-full">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1">
-              <h3 className="font-semibold text-white group-hover:text-orange-500 transition-colors text-lg leading-tight">
-                {deal.title}
-              </h3>
-              <p className="text-gray-400 text-sm mt-1">{deal.restaurant.name}</p>
+    <Link href={`/deals/${deal.id}`} className="group block h-full" aria-label={deal.title}>
+      <Card className="h-full p-5" variant="interactive">
+        <div className="flex h-full flex-col gap-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {deal.verified ? (
+                  <Badge variant="verified">
+                    <CheckCircleIcon size={12} />
+                    Verified
+                  </Badge>
+                ) : null}
+                {deal.cuisineType ? <Badge variant="cuisine">{deal.cuisineType}</Badge> : null}
+                {deal.category ? <Badge variant="category">{deal.category}</Badge> : null}
+                {showStatus ? (
+                  <Badge
+                    variant={
+                      deal.status === "APPROVED"
+                        ? "approved"
+                        : deal.status === "PENDING"
+                          ? "pending"
+                          : "rejected"
+                    }
+                  >
+                    {deal.status}
+                  </Badge>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold tracking-tight text-white transition-colors group-hover:text-orange-200">
+                  {deal.title}
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
+                  <span className="font-medium text-gray-200">{deal.restaurant.name}</span>
+                  <span className="text-gray-600">•</span>
+                  <span>{deal.restaurant.city}, {deal.restaurant.state}</span>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-col items-end gap-1 ml-3 flex-shrink-0">
-              {deal.verified && <Badge variant="verified">✓ Verified</Badge>}
-              {showStatus && (
-                <Badge variant={
-                  deal.status === "APPROVED" ? "approved" :
-                  deal.status === "PENDING" ? "pending" : "rejected"
-                }>{deal.status}</Badge>
-              )}
-            </div>
+
+            {upvotes > 0 ? (
+              <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/10 px-3 py-2 text-right">
+                <p className="text-xs uppercase tracking-[0.18em] text-emerald-200/80">Community</p>
+                <p className="mt-1 text-sm font-semibold text-emerald-100">{formatCompactNumber(upvotes)} upvotes</p>
+              </div>
+            ) : null}
           </div>
 
-          <p className="text-gray-400 text-sm mb-4 line-clamp-2 flex-1">{deal.description}</p>
+          <div className="space-y-4">
+            <p className="line-clamp-3 text-sm leading-6 text-gray-400">{deal.description}</p>
+            {deal.priceInfo ? <p className="text-lg font-semibold text-orange-200">{deal.priceInfo}</p> : null}
+          </div>
 
-          <div className="space-y-2">
-            {deal.priceInfo && (
-              <div className="text-orange-400 font-semibold text-lg">{deal.priceInfo}</div>
-            )}
-
-            {schedule && (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <span>📅</span>
+          <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
+            {schedule ? (
+              <div className="flex items-center gap-2 text-sm text-gray-300">
+                <ClockIcon size={16} className="text-orange-300" />
                 <span>{getDayName(schedule.dayOfWeek)}</span>
-                <span>·</span>
+                <span className="text-gray-600">•</span>
                 <span>{formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}</span>
               </div>
-            )}
+            ) : null}
 
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {deal.cuisineType && <Badge variant="cuisine">{deal.cuisineType}</Badge>}
-              {deal.category && <Badge variant="category">{deal.category}</Badge>}
-              {deal.kidFriendly && <Badge>👶 Kids OK</Badge>}
-              {deal.kidsEatFree && <Badge>🆓 Kids Eat Free</Badge>}
-              {deal.vegetarianFriendly && <Badge>🥗 Vegetarian</Badge>}
-              {deal.lateNight && <Badge>🌙 Late Night</Badge>}
+            <div className="flex items-start gap-2 text-sm text-gray-400">
+              <MapPinIcon size={16} className="mt-0.5 text-orange-300" />
+              <div>
+                <p className="line-clamp-2">{getRestaurantAddress(deal.restaurant)}</p>
+                {hasCoordinates(deal.restaurant) ? (
+                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-emerald-200/70">Map ready</p>
+                ) : null}
+              </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-gray-800">
-              <div className="flex gap-3 text-sm text-gray-500">
-                {deal.dineIn && <span>🍽️ Dine In</span>}
-                {deal.toGo && <span>🥡 To Go</span>}
-              </div>
-              {upvotes > 0 && (
-                <span className="text-sm text-green-400">👍 {upvotes}</span>
-              )}
+            <div className="flex flex-wrap gap-2">
+              {deal.dineIn ? <Badge>Dine In</Badge> : null}
+              {deal.toGo ? <Badge>To Go</Badge> : null}
+              {deal.kidFriendly ? <Badge>Kid Friendly</Badge> : null}
+              {deal.kidsEatFree ? <Badge>Kids Eat Free</Badge> : null}
+              {deal.vegetarianFriendly ? <Badge>Vegetarian</Badge> : null}
+              {deal.lateNight ? <Badge>Late Night</Badge> : null}
             </div>
           </div>
         </div>

@@ -8,9 +8,12 @@ test("production routes and auth session endpoint stay healthy", async ({ page, 
   const dealsResponse = await page.goto("/deals");
   expect(dealsResponse?.ok()).toBeTruthy();
   await expect(page.getByRole("heading", { name: "Browse Deals" })).toBeVisible();
+  await page.getByRole("button", { name: "Map" }).click();
+  await expect(page.getByTestId("deals-map")).toBeVisible();
   const dealLink = page.getByRole("link", { name: /Pizza Monday Deal/i }).first();
   await expect(dealLink).toBeVisible();
   await dealLink.click();
   await expect(page).toHaveURL(/\/deals\/[^/?#]+$/);
   await expect(page.getByRole("heading", { name: "Pizza Monday Deal" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Open in Maps/i })).toBeVisible();
 });

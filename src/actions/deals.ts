@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { canUseRuntimeAuth, hasRuntimeDatabase } from "@/lib/runtime-config";
+import { getSafeExternalHref } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -35,6 +36,22 @@ function getTimeValue(formData: FormData, field: string, fallback: string) {
   return TIME_PATTERN.test(trimmed) ? trimmed : null;
 }
 
+function getOptionalNumber(formData: FormData, field: string, min: number, max: number) {
+  const value = formData.get(field);
+  if (typeof value !== "string" || value.trim() === "") return undefined;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return null;
+  return parsed;
+}
+
+function getOptionalHttpUrl(formData: FormData, field: string) {
+  const value = getOptionalText(formData, field);
+  if (value === undefined) return undefined;
+
+  return getSafeExternalHref(value);
+}
+
 function redirectToSubmitError(message: string): never {
   redirect(`/submit?error=${encodeURIComponent(message)}`);
 }
@@ -60,6 +77,11 @@ export async function submitDeal(formData: FormData) {
   const description = getRequiredText(formData, "description");
   const startTime = getTimeValue(formData, "startTime", "11:00");
   const endTime = getTimeValue(formData, "endTime", "14:00");
+  const restaurantPhone = getOptionalText(formData, "restaurantPhone");
+  const restaurantWebsite = getOptionalHttpUrl(formData, "restaurantWebsite");
+  const restaurantLatitude = getOptionalNumber(formData, "restaurantLatitude", -90, 90);
+  const restaurantLongitude = getOptionalNumber(formData, "restaurantLongitude", -180, 180);
+  const sourceUrl = getOptionalHttpUrl(formData, "sourceUrl");
 
   if (!restaurantName || !restaurantAddress || !restaurantCity || !restaurantState || !restaurantZip || !title || !description) {
     redirectToSubmitError("Please fill out all required fields.");
@@ -67,6 +89,22 @@ export async function submitDeal(formData: FormData) {
 
   if (!startTime || !endTime) {
     redirectToSubmitError("Please provide valid start and end times.");
+  }
+
+  if (restaurantWebsite === null) {
+    redirectToSubmitError("Please enter a valid website URL starting with http:// or https://.");
+  }
+
+  if (sourceUrl === null) {
+    redirectToSubmitError("Please enter a valid source URL starting with http:// or https://.");
+  }
+
+  if (restaurantLatitude === null || restaurantLongitude === null) {
+    redirectToSubmitError("Latitude must be between -90 and 90 and longitude must be between -180 and 180.");
+  }
+
+  if ((restaurantLatitude === undefined) !== (restaurantLongitude === undefined)) {
+    redirectToSubmitError("Add both latitude and longitude to place a restaurant on the map.");
   }
 
   const dayValues = formData.getAll("days");
@@ -87,7 +125,13 @@ export async function submitDeal(formData: FormData) {
   const days = [...new Set(parsedDays.filter((day): day is number => day !== null))];
 
   let restaurant = await prisma.restaurant.findFirst({
-    where: { name: restaurantName, city: restaurantCity },
+    where: {
+      name: restaurantName,
+      address: restaurantAddress,
+      city: restaurantCity,
+      state: restaurantState,
+      zip: restaurantZip,
+    },
   });
 
   if (!restaurant) {
@@ -98,6 +142,10 @@ export async function submitDeal(formData: FormData) {
         city: restaurantCity,
         state: restaurantState,
         zip: restaurantZip,
+        phone: restaurantPhone,
+        website: restaurantWebsite,
+        latitude: restaurantLatitude,
+        longitude: restaurantLongitude,
       },
     });
   }
@@ -118,7 +166,7 @@ export async function submitDeal(formData: FormData) {
       lateNight: formData.get("lateNight") === "on",
       cuisineType: getOptionalText(formData, "cuisineType"),
       category: getOptionalText(formData, "category"),
-      sourceUrl: getOptionalText(formData, "sourceUrl"),
+      sourceUrl,
       notes: getOptionalText(formData, "notes"),
       submittedById: session.user.id,
       status: "PENDING",
@@ -134,6 +182,7 @@ export async function submitDeal(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/deals");
+  revalidatePath("/");
   redirectToSubmitSuccess("Deal submitted for review.");
 }
 
