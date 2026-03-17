@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import { getAuthSecret } from "@/lib/auth-env";
 
 /**
  * Lightweight auth config that is safe to use in Edge Runtime (middleware).
@@ -9,7 +10,7 @@ export const authConfig = {
     process.env.AUTH_TRUST_HOST === "true" ||
     process.env.VERCEL === "1" ||
     process.env.CF_PAGES === "1",
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  secret: getAuthSecret(),
   pages: {
     signIn: "/auth/signin",
   },

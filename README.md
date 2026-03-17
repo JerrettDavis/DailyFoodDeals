@@ -5,7 +5,7 @@ Sizzling snacks and daily deals that won't break the bank.
 ## Tech Stack
 
 - **Framework**: Next.js 16 with App Router
-- **Database**: SQLite via Prisma v7 (libSQL driver adapter)
+- **Database**: SQLite/libSQL via Prisma v7 (works with local SQLite or Turso/libSQL)
 - **Auth**: NextAuth.js v5 (beta) with credentials provider and JWT sessions
 - **Styling**: Tailwind CSS v4
 - **Language**: TypeScript
@@ -21,6 +21,8 @@ Sizzling snacks and daily deals that won't break the bank.
    ```bash
    cp .env.example .env
    ```
+   - Local development can use `DATABASE_URL="file:./prisma/dev.db"`
+   - Production can use `DATABASE_URL` directly or Turso via `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN`
 
 3. Push database schema and seed:
    ```bash

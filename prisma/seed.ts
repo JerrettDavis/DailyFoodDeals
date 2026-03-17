@@ -1,11 +1,19 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import bcrypt from "bcryptjs";
+import { getDatabaseUrl, getLibSqlAuthToken } from "../src/lib/database-config";
 
 const prisma = new PrismaClient({
-  adapter: new PrismaLibSql({
-    url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
-  }),
+  adapter: new PrismaLibSql(
+    getLibSqlAuthToken()
+      ? {
+          url: getDatabaseUrl(),
+          authToken: getLibSqlAuthToken(),
+        }
+      : {
+          url: getDatabaseUrl(),
+        }
+  ),
 });
 
 async function main() {
