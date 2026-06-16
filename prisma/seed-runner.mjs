@@ -17,6 +17,7 @@ const result = spawnSync(
     JSON.stringify({
       module: "CommonJS",
       moduleResolution: "node",
+      ignoreDeprecations: "6.0",
       esModuleInterop: true,
     }),
     path.join("prisma", "seed.ts"),

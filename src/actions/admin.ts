@@ -15,6 +15,11 @@ const PARTICIPATION_STATUSES = new Set([
   PARTICIPATION_STATUS_NON_PARTICIPATING,
 ]);
 
+type ParticipationReviewTransaction = {
+  dealLocationParticipationReview: typeof prisma.dealLocationParticipationReview;
+  dealLocationParticipation: typeof prisma.dealLocationParticipation;
+};
+
 async function requireAdmin() {
   const session = await requireManagerSession();
   if (session.user.role !== "ADMIN") {
@@ -62,7 +67,10 @@ async function ensureCanRemoveParticipatingLocation(
   ]);
 
   const overrideByRestaurantId = new Map(
-    overrides.map((override) => [override.restaurantId, override.status])
+    overrides.map((override: { restaurantId: string; status: string }) => [
+      override.restaurantId,
+      override.status,
+    ])
   );
   const targetStatus =
     overrideByRestaurantId.get(restaurantId) ?? PARTICIPATION_STATUS_PARTICIPATING;
@@ -71,7 +79,7 @@ async function ensureCanRemoveParticipatingLocation(
     return;
   }
 
-  const activeLocationCount = brandRestaurants.filter((restaurant) => {
+  const activeLocationCount = brandRestaurants.filter((restaurant: { id: string }) => {
     return (
       (overrideByRestaurantId.get(restaurant.id) ?? PARTICIPATION_STATUS_PARTICIPATING) !==
       PARTICIPATION_STATUS_NON_PARTICIPATING
@@ -252,7 +260,7 @@ export async function approveParticipationReview(reviewId: string) {
     await ensureCanRemoveParticipatingLocation(review.dealId, reviewDeal.brandId, review.restaurantId);
   }
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: ParticipationReviewTransaction) => {
     const updated = await tx.dealLocationParticipationReview.updateMany({
       where: {
         id: reviewId,
