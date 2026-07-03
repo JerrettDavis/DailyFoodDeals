@@ -39,3 +39,7 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    ignore:
+      # eslint 10 not yet supported by eslint-config-next (uses removed context.getFilename() API); unpin when eslint-config-next adds ESLint 10 support
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
