@@ -30,8 +30,8 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@babel/core": "^8.0.1",
-    "@babel/eslint-parser": "^8.0.1",
+    "@babel/core": "^7.26.10",
+    "@babel/eslint-parser": "^7.25.1",
     "@babel/plugin-syntax-jsx": "^8.0.1",
     "@babel/preset-typescript": "^8.0.1",
     "@next/eslint-plugin-next": "^16.2.10",
