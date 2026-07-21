@@ -35,6 +35,17 @@ updates:
       prefix: "chore(deps)"
     cooldown:
       default-days: 2
+    # typescript-eslint 8.x (bundled transitively via eslint-config-next) caps its
+    # typescript peer range at "<6.1.0", so TypeScript is pinned to ~6.0.3 for now.
+    # eslint-plugin-react 7.37.5 (also bundled via eslint-config-next) has no
+    # release supporting ESLint 10 (peer caps at ^9.7), so eslint is pinned to
+    # ^9.39.4. Remove these ignores once eslint-config-next ships versions whose
+    # bundled typescript-eslint/eslint-plugin-react support the newer majors.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-dependencies:
         patterns:
